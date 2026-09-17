@@ -1,0 +1,269 @@
+package com.tuempresa.possystem.presentation.navegacion
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.tuempresa.possystem.CrashHandler
+import com.tuempresa.possystem.POSApplication
+import com.tuempresa.possystem.data.local.entity.RolUsuario
+import com.tuempresa.possystem.presentation.ajustes.PantallaAjustesBoleta
+import com.tuempresa.possystem.presentation.ajustes.PantallaAjustesImpresora
+import com.tuempresa.possystem.presentation.cambios.PantallaCambios
+import com.tuempresa.possystem.presentation.home.PantallaHomeAdmin
+import com.tuempresa.possystem.presentation.home.PantallaHomeVendedor
+import com.tuempresa.possystem.presentation.home.PantallaProximamente
+import com.tuempresa.possystem.presentation.login.LoginViewModel
+import com.tuempresa.possystem.presentation.login.PantallaLogin
+import com.tuempresa.possystem.presentation.inventario.PantallaEditarPrecio
+import com.tuempresa.possystem.presentation.inventario.PantallaEntradaMercaderia
+import com.tuempresa.possystem.presentation.inventario.PantallaInventario
+import com.tuempresa.possystem.presentation.inventario.PantallaInventarioConsulta
+import com.tuempresa.possystem.presentation.inventario.PantallaNuevoProducto
+import com.tuempresa.possystem.presentation.inventario.fabricaViewModel
+import com.tuempresa.possystem.presentation.reportes.PantallaReportes
+import com.tuempresa.possystem.presentation.usuarios.PantallaUsuarios
+import com.tuempresa.possystem.presentation.venta.PantallaMisVentas
+import com.tuempresa.possystem.presentation.venta.PantallaVenta
+import com.tuempresa.possystem.presentation.homeeco.PantallaPrincipalEco
+import com.tuempresa.possystem.presentation.homeeco.PantallaAjustesEco
+import com.tuempresa.possystem.presentation.homeeco.PantallaNuevoProductoEco
+
+private object Rutas {
+    const val LOGIN = "login"
+    const val HOME_ADMIN = "home_admin"
+    const val HOME_VENDEDOR = "home_vendedor"
+    const val VENTA = "venta"
+    const val INVENTARIO = "inventario"
+    const val NUEVO_PRODUCTO = "nuevo_producto"
+    const val ENTRADA_MERCADERIA = "entrada_mercaderia"
+    const val EDITAR_PRECIO = "editar_precio/{productoId}"
+    const val REPORTES = "reportes"
+    const val USUARIOS = "usuarios"
+    const val INVENTARIO_CONSULTA = "inventario_consulta"
+    const val MIS_VENTAS = "mis_ventas"
+    const val AJUSTES_BOLETA = "ajustes_boleta"
+    const val AJUSTES_IMPRESORA = "ajustes_impresora"
+    const val CAMBIOS = "cambios"
+    const val CAJA_PRINCIPAL = "caja_principal"
+    const val AJUSTES_ECO = "ajustes_eco"
+    const val NUEVO_PRODUCTO_ECO = "nuevo_producto_eco"
+}
+
+@Composable
+fun GrafoNavegacionPrincipal(app: POSApplication) {
+    val navController = rememberNavController()
+    val usuarioActual by app.sessionManager.usuarioActual.collectAsState()
+
+    // Cuando la sesión cambia (login o logout), redirige automáticamente
+    // a la pantalla correspondiente sin que cada pantalla tenga que saberlo.
+    // Se ignora el primer valor (arranque en null = login, que ya es el
+    // startDestination del NavHost) para no navegar antes de que el grafo exista.
+    var esPrimeraComposicion by remember { mutableStateOf(true) }
+    LaunchedEffect(usuarioActual) {
+        if (esPrimeraComposicion) {
+            esPrimeraComposicion = false
+            return@LaunchedEffect
+        }
+        val destino = when (usuarioActual?.rol) {
+            RolUsuario.ADMIN -> Rutas.HOME_ADMIN
+            RolUsuario.VENDEDOR -> Rutas.HOME_VENDEDOR
+            null -> Rutas.LOGIN
+        }
+        navController.navigate(destino) {
+            // popUpTo(0) causaba un crash porque 0 no es un id de destino válido
+            // en este grafo (las rutas son strings, no ids numéricos). Se usa el id
+            // raíz real del grafo de navegación para limpiar todo el historial.
+            popUpTo(navController.graph.id) {
+                inclusive = true
+            }
+            launchSingleTop = true
+        }
+    }
+
+    NavHost(navController = navController, startDestination = Rutas.LOGIN) {
+        composable(Rutas.LOGIN) {
+            val loginViewModel: LoginViewModel = viewModel(factory = fabricaViewModel(app) {
+                LoginViewModel(app)
+            })
+            val ultimoError = remember { CrashHandler.leerUltimoError(app) }
+            PantallaLogin(viewModel = loginViewModel, ultimoError = ultimoError)
+        }
+
+        composable(Rutas.HOME_VENDEDOR) {
+            PantallaHomeVendedor(
+                nombreUsuario = usuarioActual?.nombre ?: "",
+                onNavegar = { ruta ->
+                    when (ruta) {
+                        "caja_principal" -> navController.navigate(Rutas.CAJA_PRINCIPAL)
+                        "venta" -> navController.navigate(Rutas.VENTA)
+                        "inventario_consulta" -> navController.navigate(Rutas.INVENTARIO_CONSULTA)
+                        "mis_ventas" -> navController.navigate(Rutas.MIS_VENTAS)
+                        "cambios" -> navController.navigate(Rutas.CAMBIOS)
+                        else -> navController.navigate("proximamente/$ruta")
+                    }
+                },
+                onCerrarSesion = { app.sessionManager.cerrarSesion() }
+            )
+        }
+
+        composable(Rutas.HOME_ADMIN) {
+            PantallaHomeAdmin(
+                nombreUsuario = usuarioActual?.nombre ?: "",
+                onNavegar = { ruta ->
+                    when (ruta) {
+                        "caja_principal" -> navController.navigate(Rutas.CAJA_PRINCIPAL)
+                        "venta" -> navController.navigate(Rutas.VENTA)
+                        "inventario" -> navController.navigate(Rutas.INVENTARIO)
+                        "reportes" -> navController.navigate(Rutas.REPORTES)
+                        "usuarios" -> navController.navigate(Rutas.USUARIOS)
+                        "ajustes_boleta" -> navController.navigate(Rutas.AJUSTES_BOLETA)
+                        "ajustes_impresora" -> navController.navigate(Rutas.AJUSTES_IMPRESORA)
+                        "cambios" -> navController.navigate(Rutas.CAMBIOS)
+                        else -> navController.navigate("proximamente/$ruta")
+                    }
+                },
+                onCerrarSesion = { app.sessionManager.cerrarSesion() }
+            )
+        }
+
+        composable(Rutas.VENTA) {
+            PantallaVenta(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.INVENTARIO) {
+            PantallaInventario(
+                app = app,
+                onVolver = { navController.popBackStack() },
+                onNuevoProducto = { navController.navigate(Rutas.NUEVO_PRODUCTO) },
+                onEntradaMercaderia = { navController.navigate(Rutas.ENTRADA_MERCADERIA) },
+                onEditarPrecio = { productoId -> navController.navigate("editar_precio/$productoId") }
+            )
+        }
+
+        composable(
+            Rutas.EDITAR_PRECIO,
+            arguments = listOf(navArgument("productoId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val productoId = backStackEntry.arguments?.getString("productoId") ?: ""
+            PantallaEditarPrecio(
+                app = app,
+                productoId = productoId,
+                onVolver = { navController.popBackStack() },
+                onGuardado = { navController.popBackStack() }
+            )
+        }
+
+        composable(Rutas.REPORTES) {
+            PantallaReportes(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.USUARIOS) {
+            PantallaUsuarios(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.INVENTARIO_CONSULTA) {
+            PantallaInventarioConsulta(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.MIS_VENTAS) {
+            PantallaMisVentas(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.AJUSTES_BOLETA) {
+            PantallaAjustesBoleta(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.AJUSTES_IMPRESORA) {
+            PantallaAjustesImpresora(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.CAMBIOS) {
+            PantallaCambios(app = app, onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.CAJA_PRINCIPAL) {
+            PantallaPrincipalEco(
+                app = app,
+                onIrANuevaVenta = { navController.navigate(Rutas.VENTA) },
+                onAbrirCarritoActivo = { navController.navigate(Rutas.VENTA) },
+                onAgregarProducto = { navController.navigate(Rutas.NUEVO_PRODUCTO_ECO) },
+                onAbrirProducto = { productoId -> navController.navigate("editar_precio/$productoId") },
+                onAbrirVenta = { /* Detalle de venta puntual: pendiente de pantalla propia. */ },
+                onNavegarDesdeMenu = { ruta ->
+                    when (ruta) {
+                        "ajustes_eco" -> navController.navigate(Rutas.AJUSTES_ECO)
+                        "usuarios" -> navController.navigate(Rutas.USUARIOS)
+                        "ajustes_impresora" -> navController.navigate(Rutas.AJUSTES_IMPRESORA)
+                        else -> navController.navigate(ruta)
+                    }
+                }
+            )
+        }
+
+        composable(Rutas.AJUSTES_ECO) {
+            PantallaAjustesEco(onVolver = { navController.popBackStack() })
+        }
+
+        composable(Rutas.NUEVO_PRODUCTO) {
+            PantallaNuevoProducto(
+                app = app,
+                onVolver = { navController.popBackStack() },
+                onGuardado = { navController.popBackStack() }
+            )
+        }
+
+        composable(Rutas.NUEVO_PRODUCTO_ECO) {
+            PantallaNuevoProductoEco(
+                app = app,
+                onVolver = { navController.popBackStack() },
+                onGuardado = { navController.popBackStack() }
+            )
+        }
+
+        composable(Rutas.ENTRADA_MERCADERIA) {
+            PantallaEntradaMercaderia(
+                app = app,
+                onVolver = { navController.popBackStack() },
+                onIrANuevoProducto = {
+                    navController.navigate(Rutas.NUEVO_PRODUCTO) {
+                        popUpTo(Rutas.ENTRADA_MERCADERIA) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable("proximamente/{seccion}") { backStackEntry ->
+            val seccion = backStackEntry.arguments?.getString("seccion") ?: ""
+            PantallaProximamente(
+                titulo = tituloParaSeccion(seccion),
+                onVolver = { navController.popBackStack() }
+            )
+        }
+    }
+}
+
+private fun tituloParaSeccion(seccion: String): String = when (seccion) {
+    "venta" -> "Vender"
+    "inventario" -> "Inventario"
+    "inventario_consulta" -> "Consultar inventario"
+    "mis_ventas" -> "Mis ventas de hoy"
+    "reportes" -> "Reportes y caja"
+    "pmf" -> "Preguntas frecuentes"
+    "descuento" -> "Descuentos"
+    "unidad" -> "Unidades de medida"
+    "etiqueta_pago" -> "Etiquetas de pago"
+    "backup" -> "Copia de seguridad"
+    "importar_productos" -> "Importar productos"
+    "politica_privacidad" -> "Política de privacidad"
+    else -> seccion
+}

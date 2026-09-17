@@ -26,8 +26,13 @@ jobs:
         echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> local.properties
         echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> local.properties
 
-    - name: Dar permisos de ejecución a Gradle
-      run: chmod +x gradlew
+    - name: Validar o Generar Gradle Wrapper
+      run: |
+        if [ ! -f gradlew ]; then
+          echo "gradlew no encontrado, generando uno nuevo..."
+          gradle wrapper
+        fi
+        chmod +x gradlew
 
     - name: Compilar APK (Modo Release)
       run: ./gradlew assembleRelease

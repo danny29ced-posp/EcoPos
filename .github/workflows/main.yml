@@ -35,7 +35,7 @@ jobs:
         chmod +x gradlew
 
     - name: Compilar APK (Modo Release)
-      run: ./gradlew assembleRelease
+      run: ./gradlew clean assembleRelease --no-build-cache --no-configuration-cache
 
     - name: Guardar el archivo APK generado
       uses: actions/upload-artifact@v4

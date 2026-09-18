@@ -28,12 +28,12 @@ android {
     signingConfigs {
         create("release") {
             // Se completa en el paso de firmado (ver README > "Firma y build")
-            val keystorePath = project.findProperty("RELEASE_STORE_FILE") as String?
+            val keystorePath = System.getenv("RELEASE_STORE_FILE")
             if (keystorePath != null) {
                 storeFile = file(keystorePath)
-                storePassword = project.findProperty("RELEASE_STORE_PASSWORD") as String?
-                keyAlias = project.findProperty("RELEASE_KEY_ALIAS") as String?
-                keyPassword = project.findProperty("RELEASE_KEY_PASSWORD") as String?
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
             }
         }
     }
@@ -50,8 +50,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Descomenta cuando tengas el keystore configurado:
-            // signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
